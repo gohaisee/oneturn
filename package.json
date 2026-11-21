@@ -1,6 +1,6 @@
 {
   "name": "oneturn",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One slice of the event loop",
   "type": "module",
   "main": "./dist/index.js",

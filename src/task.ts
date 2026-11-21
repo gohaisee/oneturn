@@ -3,6 +3,9 @@ import type { Turn } from './turn.ts'
 
 const main = open()
 
-export function task(work: (turn: Turn) => unknown, opts?: TaskOpts): Promise<unknown> {
+export function task<T>(
+  work: (turn: Turn) => Generator<unknown, T, unknown>,
+  opts?: TaskOpts,
+): Promise<T> {
   return main.task(work, opts)
 }
