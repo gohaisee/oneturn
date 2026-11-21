@@ -36,7 +36,21 @@ function budget(lagMs: number): number {
   return SLICE_MS
 }
 
+function isAsyncGenerator(value: unknown): boolean {
+  if (typeof value !== 'object' && typeof value !== 'function') {
+    return false
+  }
+  if (!value) {
+    return false
+  }
+  const next = (value as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator]
+  return typeof next === 'function'
+}
+
 function isGenerator(value: unknown): value is Generator<unknown, unknown, unknown> {
+  if (isAsyncGenerator(value)) {
+    return false
+  }
   if (typeof value !== 'object' && typeof value !== 'function') {
     return false
   }
@@ -47,7 +61,10 @@ function isGenerator(value: unknown): value is Generator<unknown, unknown, unkno
 }
 
 export function open(deps?: Partial<Deps>): {
-  task: (work: (turn: Turn) => unknown, opts?: TaskOpts) => Promise<unknown>
+  task: <T>(
+    work: (turn: Turn) => Generator<unknown, T, unknown>,
+    opts?: TaskOpts,
+  ) => Promise<T>
 } {
   const now = deps?.now ?? (() => performance.now())
   const later = deps?.later ?? ((fn: () => void) => {
@@ -107,7 +124,10 @@ export function open(deps?: Partial<Deps>): {
     }
   }
 
-  function task(work: (turn: Turn) => unknown, opts?: TaskOpts): Promise<unknown> {
+  function task<T>(
+    work: (turn: Turn) => Generator<unknown, T, unknown>,
+    opts?: TaskOpts,
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
       const turn = makeTurn(now)
       let gen: unknown
@@ -115,6 +135,10 @@ export function open(deps?: Partial<Deps>): {
         gen = work(turn)
       } catch (error) {
         reject(error)
+        return
+      }
+      if (isAsyncGenerator(gen)) {
+        reject(new Error('oneturn: an async generator is not a task'))
         return
       }
       if (!isGenerator(gen)) {
@@ -140,7 +164,9 @@ export function open(deps?: Partial<Deps>): {
         sent: undefined,
         signal,
         settled: false,
-        resolve,
+        resolve(value) {
+          resolve(value as T)
+        },
         reject,
       })
     })

@@ -8,6 +8,26 @@ test('the package exports a task function', () => {
   assert.equal(typeof task, 'function')
 })
 
+function typed(): Promise<number> {
+  return task(function* (turn) {
+    if (turn.due()) yield
+    return 7
+  })
+}
+
+test('the result type is the generator return', () => {
+  const value: Awaited<ReturnType<typeof typed>> = 7
+  assert.equal(value, 7)
+})
+
+const raw = open as (deps?: {
+  now: () => number
+  later: (fn: () => void) => void
+  lag: () => number
+}) => {
+  task: (work: (turn: Turn) => unknown, opts?: { signal?: AbortSignal }) => Promise<unknown>
+}
+
 test('a throw before the generator rejects the promise', async () => {
   const error = new Error('early')
   const loop = open({
@@ -22,13 +42,25 @@ test('a throw before the generator rejects the promise', async () => {
 })
 
 test('a non-generator rejects', async () => {
-  const loop = open({
+  const loop = raw({
     now: () => 0,
     later() {},
     lag: () => 0,
   })
   const result = loop.task(() => undefined)
   await assert.rejects(result, /oneturn: task expects a generator/)
+})
+
+test('an async generator rejects', async () => {
+  const loop = raw({
+    now: () => 0,
+    later() {},
+    lag: () => 0,
+  })
+  const result = loop.task(async function* () {
+    yield 1
+  })
+  await assert.rejects(result, /oneturn: an async generator is not a task/)
 })
 
 test('an already aborted signal rejects before the queue', async () => {
