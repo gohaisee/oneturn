@@ -3,8 +3,6 @@ import { makeQueue } from './queue.ts'
 import { step, type Job } from './step.ts'
 import { makeTurn, type Turn } from './turn.ts'
 
-export type Work = (turn: Turn) => Generator<unknown, unknown, unknown>
-
 export type Deps = {
   now: () => number
   later: (fn: () => void) => void
@@ -49,7 +47,7 @@ function isGenerator(value: unknown): value is Generator<unknown, unknown, unkno
 }
 
 export function open(deps?: Partial<Deps>): {
-  task: (work: Work, opts?: TaskOpts) => Promise<unknown>
+  task: (work: (turn: Turn) => unknown, opts?: TaskOpts) => Promise<unknown>
 } {
   const now = deps?.now ?? (() => performance.now())
   const later = deps?.later ?? ((fn: () => void) => {
@@ -109,7 +107,7 @@ export function open(deps?: Partial<Deps>): {
     }
   }
 
-  function task(work: Work, opts?: TaskOpts): Promise<unknown> {
+  function task(work: (turn: Turn) => unknown, opts?: TaskOpts): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const turn = makeTurn(now)
       let gen: unknown
