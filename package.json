@@ -1,17 +1,39 @@
 {
   "name": "oneturn",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "One slice of the event loop",
   "type": "module",
-  "exports": "./src/index.ts",
-  "files": ["src"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
+  "keywords": [
+    "event-loop",
+    "node"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gohaisee/oneturn.git"
+  },
   "engines": {
     "node": ">=26.5"
   },
   "scripts": {
-    "test": "node --test",
-    "check": "tsc --noEmit"
+    "build": "tsc",
+    "check": "tsc -p tsconfig.check.json --noEmit",
+    "prepublishOnly": "npm run build",
+    "test": "node --test"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
