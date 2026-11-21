@@ -186,7 +186,7 @@ test('a promise yield lets the next job run', async () => {
     release = resolve
   })
   let other = false
-  const parent = loop.task(function* () {
+  const parent = loop.task(function* (): Generator<Promise<number>, number, number> {
     return yield gate
   })
   loop.task(function* () {
@@ -203,11 +203,10 @@ test('a promise yield lets the next job run', async () => {
 
 test('a nested task finishes and wakes its parent', async () => {
   const { loop, queued, run } = harness()
-  const result = loop.task(function* () {
-    const child = loop.task(function* () {
+  const result = loop.task(function* (): Generator<Promise<unknown>, number, number> {
+    return yield loop.task(function* () {
       return 4
     })
-    return yield child
   })
   assert.equal(queued.length, 1)
   run()
