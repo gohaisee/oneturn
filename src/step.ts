@@ -37,17 +37,31 @@ function stop(job: Job, reason: unknown): void {
   job.reject(threw ? cleanup : reason)
 }
 
-function isThenable(value: unknown): value is PromiseLike<unknown> {
+type ThenFn = (
+  this: unknown,
+  onFulfilled: (value: unknown) => void,
+  onRejected: (error: unknown) => void,
+) => void
+
+function readThen(value: unknown): { produced: object; then: ThenFn } | undefined {
   if (typeof value !== 'object' && typeof value !== 'function') {
-    return false
+    return undefined
   }
-  if (!value || typeof (value as { then?: unknown }).then !== 'function') {
-    return false
+  if (!value) {
+    return undefined
   }
-  return true
+  const then = (value as { then?: unknown }).then
+  if (!isThen(then)) {
+    return undefined
+  }
+  return { produced: value, then }
 }
 
-function park(job: Job, produced: PromiseLike<unknown>, resume: (job: Job) => void): void {
+function isThen(value: unknown): value is ThenFn {
+  return typeof value === 'function'
+}
+
+function park(job: Job, produced: object, then: ThenFn, resume: (job: Job) => void): void {
   let closed = false
   const onAbort = () => {
     if (closed || job.settled) {
@@ -64,7 +78,8 @@ function park(job: Job, produced: PromiseLike<unknown>, resume: (job: Job) => vo
     job.signal.addEventListener('abort', onAbort, { once: true })
   }
   try {
-    produced.then(
+    then.call(
+      produced,
       (value) => {
         if (closed || job.settled) {
           return
@@ -123,10 +138,19 @@ export function step(job: Job, deadline: number, resume: (job: Job) => void): vo
     })
     return
   }
-  if (isThenable(next.value)) {
-    park(job, next.value, resume)
+  let bound: { produced: object; then: ThenFn } | undefined
+  try {
+    bound = readThen(next.value)
+  } catch (error) {
+    finish(job, () => {
+      job.reject(error)
+    })
     return
   }
-  // Голый yield не ждёт промис. Пока бюджет среза не вышел, этот же генератор продолжают сразу.
-  resume(job)
+  if (bound === undefined) {
+    // Голый yield не ждёт промис. Пока бюджет среза не вышел, этот же генератор продолжают сразу.
+    resume(job)
+    return
+  }
+  park(job, bound.produced, bound.then, resume)
 }

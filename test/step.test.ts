@@ -122,6 +122,23 @@ test('a rejected promise rejects the job', async () => {
   assert.equal(box.settles, 1)
 })
 
+test('a throwing then getter rejects the job', () => {
+  const error = new Error('getter')
+  const { job, box } = makeJob(
+    (function* () {
+      yield {
+        get then() {
+          throw error
+        },
+      }
+    })(),
+  )
+  step(job, 5, resume(box))
+  assert.equal(box.reason, error)
+  assert.equal(box.resumed, 0)
+  assert.equal(box.settles, 1)
+})
+
 test('a thenable that throws rejects the job', () => {
   const error = new Error('then')
   const { job, box } = makeJob(

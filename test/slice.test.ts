@@ -118,6 +118,32 @@ test('lag 20 keeps the 5ms budget', () => {
   assert.equal(phase, 2)
 })
 
+test('a throwing then getter does not drop the next job', async () => {
+  const error = new Error('getter')
+  const { loop, run } = harness()
+  let ran = false
+  const failed = loop.task(function* () {
+    yield {
+      get then() {
+        throw error
+      },
+    }
+  })
+  const ok = loop.task(function* () {
+    ran = true
+    return 1
+  })
+  const settled = Promise.allSettled([failed, ok])
+  run()
+  const [left, right] = await settled
+  assert.equal(left.status, 'rejected')
+  if (left.status === 'rejected') {
+    assert.equal(left.reason, error)
+  }
+  assert.equal(right.status, 'fulfilled')
+  assert.equal(ran, true)
+})
+
 test('a throw does not drop the next job in the same slice', async () => {
   const { loop, run } = harness()
   let ran = false
